@@ -1,0 +1,27 @@
+name: Check
+on: [push, pull_request]
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, "1.88"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+      - if: matrix.toolchain == 'stable'
+        run: cargo fmt --all --check
+      - run: cargo test --locked
+      - run: cargo test --all-features --locked
+      - if: matrix.toolchain == 'stable'
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+  swift:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: ./scripts/test-swift.sh
+      - run: ./scripts/swift.sh ios

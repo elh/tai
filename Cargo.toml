@@ -1,0 +1,30 @@
+[package]
+name = "tai"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Taiwanese mahjong scoring, with optional Swift bindings"
+license = "MIT"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[features]
+default = []
+uniffi = ["dep:uniffi"]
+bindgen = ["uniffi", "uniffi/cli"]
+
+[dependencies]
+uniffi = { version = "=0.32.2", optional = true, default-features = false }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = "warn"
