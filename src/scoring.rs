@@ -1,5 +1,5 @@
 use crate::decompose::{self, Kind, Set};
-use crate::{Flower, Hand, Meld, Pattern, Score, ScoreError, Tile, WinContext, WinSource};
+use crate::{Hand, Meld, Pattern, Score, ScoreError, Tile, WinContext, WinSource};
 
 /// Validate and score a 16-tile hand plus its winning tile, selecting the best arrangement.
 ///
@@ -81,18 +81,18 @@ pub fn score(hand: &Hand, context: &WinContext) -> Result<Score, ScoreError> {
     best.ok_or(ScoreError::NotWinning)
 }
 
-/// Score a flower-only win: eight held flowers, or seven held plus the missing robbed flower.
-/// Other patterns never contribute to these 30- or 20-tai wins.
+/// Score a flower-only win: eight held flowers/seasons (30 tai), or seven held
+/// before robbing the eighth (20 tai). Set `robbed_eighth` only for the latter;
+/// seven held alone is not a flower-only win. Other patterns never contribute.
 ///
 /// # Errors
-/// Returns [`ScoreError`] for duplicate flowers, wrong counts, or robbing a held flower.
+/// Returns [`ScoreError::InvalidFlowers`] for any other count/event combination.
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-pub fn score_flowers(flowers: &[Flower], robbed: Option<Flower>) -> Result<Score, ScoreError> {
-    validate_flowers(flowers)?;
+pub fn score_flowers(flowers: u8, robbed_eighth: bool) -> Result<Score, ScoreError> {
     let mut score = Score::default();
-    match robbed {
-        None if flowers.len() == 8 => score.add(Pattern::EightFlowers, 30),
-        Some(flower) if flowers.len() == 7 && !flowers.contains(&flower) => {
+    match (flowers, robbed_eighth) {
+        (8, false) => score.add(Pattern::EightFlowers, 30),
+        (7, true) => {
             score.add(Pattern::SevenFlowersRobbingEighth, 20);
         }
         _ => return Err(ScoreError::InvalidFlowers),
@@ -108,8 +108,10 @@ struct Validated {
 }
 
 fn validate(hand: &Hand, context: &WinContext) -> Result<Validated, ScoreError> {
-    validate_flowers(&hand.flowers)?;
-    if hand.flowers.len() == 8 {
+    if hand.flowers > 8 {
+        return Err(ScoreError::InvalidFlowers);
+    }
+    if hand.flowers == 8 {
         return Err(ScoreError::FlowerWinRequired);
     }
     if hand.melds.len() > 5 {
@@ -177,19 +179,6 @@ fn add_tile(counts: &mut [u8; 34], index: usize) -> Result<(), ScoreError> {
         return Err(ScoreError::TooManyCopies {
             tile: Tile::from_index(index),
         });
-    }
-    Ok(())
-}
-
-fn validate_flowers(flowers: &[Flower]) -> Result<(), ScoreError> {
-    if flowers.len() > 8 {
-        return Err(ScoreError::InvalidFlowers);
-    }
-    let mut seen = [false; 8];
-    for &flower in flowers {
-        if std::mem::replace(&mut seen[flower as usize], true) {
-            return Err(ScoreError::DuplicateFlower { flower });
-        }
     }
     Ok(())
 }
@@ -274,7 +263,7 @@ fn score_arrangement(
     let mut score = Score::default();
     score.add(Winning, 2);
     let honors = validated.all[27..].iter().any(|&n| n > 0);
-    let no_flowers = hand.flowers.is_empty();
+    let no_flowers = hand.flowers == 0;
     let regular = matches!(shape, Shape::Regular(_));
     let all_chows = regular && sets.iter().all(|s| s.kind == Kind::Chow);
     // Composite absence bonuses replace their component bonuses.
@@ -295,7 +284,7 @@ fn score_arrangement(
             score.add(ChowHand, 3);
         }
     }
-    score.add(Flowers, hand.flowers.len() as u16);
+    score.add(Flowers, u16::from(hand.flowers));
     let count = |test: fn(&Set) -> bool| sets.iter().filter(|s| test(s)).count() as u16;
     score.add(HonorPungs, count(|s| s.tile >= 27 && s.kind != Kind::Chow));
     score.add(MeldedKongs, count(|s| s.kind == Kind::Kong && !s.concealed));

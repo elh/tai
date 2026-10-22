@@ -1,10 +1,10 @@
 //! A complete hand and scoring call, also shown in the README.
-use tai::{Hand, WinContext, WinSource, Wind, parse_tile, parse_tiles, score};
+use tai::{WinContext, WinSource, Wind, parse_hand, parse_tile, score};
 
 fn main() -> Result<(), tai::ScoreError> {
-    let hand = Hand::from(parse_tiles("123456m 234678p 345s 1z")?);
+    let hand = parse_hand("[111s] {5555z} [666z] 77s 56m 777z 3f")?;
     let win = WinContext {
-        winning_tile: parse_tile("1z")?,
+        winning_tile: parse_tile("4m")?,
         winner: Wind::South,
         dealer: Wind::East,
         source: WinSource::Discard(Wind::West),
@@ -13,7 +13,7 @@ fn main() -> Result<(), tai::ScoreError> {
         ready_on_original_hand: false,
     };
     let result = score(&hand, &win)?;
-    assert_eq!(result.total, 8);
+    assert_eq!(result.total, 42);
     println!("{} tai", result.total);
     for award in result.awards {
         println!("{}: {} tai", award.pattern, award.tai);

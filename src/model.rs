@@ -67,21 +67,6 @@ impl Tile {
     }
 }
 
-/// The eight unique bonus tiles. Flowers are always in use.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[allow(missing_docs)]
-pub enum Flower {
-    Plum,
-    Orchid,
-    Chrysanthemum,
-    Bamboo,
-    Spring,
-    Summer,
-    Autumn,
-    Winter,
-}
-
 /// A set declared before winning. Undeclared sets stay in `Hand::concealed`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -105,9 +90,10 @@ pub struct Hand {
     /// Declared sets; kongs count as one set. Defaults to empty in Swift.
     #[cfg_attr(feature = "uniffi", uniffi(default))]
     pub melds: Vec<Meld>,
-    /// Held flowers; empty means none held. Eight flowers use `score_flowers`.
-    #[cfg_attr(feature = "uniffi", uniffi(default))]
-    pub flowers: Vec<Flower>,
+    /// Total flowers and seasons held, 0..=8 (default 0). Identities do not affect
+    /// these rules. Eight flowers use [`crate::score_flowers`].
+    #[cfg_attr(feature = "uniffi", uniffi(default = 0))]
+    pub flowers: u8,
 }
 
 impl From<Vec<Tile>> for Hand {
@@ -301,7 +287,7 @@ impl Score {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum ScoreError {
-    /// Invalid tile notation, or not exactly one tile when parsing a single tile.
+    /// Invalid tile/set notation, or not exactly one tile when parsing a single tile.
     InvalidNotation,
     /// Numbered tile rank is outside 1 through 9.
     InvalidRank,
@@ -316,12 +302,7 @@ pub enum ScoreError {
         /// Offending tile.
         tile: Tile,
     },
-    /// The same bonus tile was supplied twice.
-    DuplicateFlower {
-        /// Offending bonus tile.
-        flower: Flower,
-    },
-    /// Flower count or robbed-flower identity is inconsistent.
+    /// Flower count is out of range or inconsistent with a flower-only win.
     InvalidFlowers,
     /// Eight flowers must be scored with `score_flowers`, without a tile hand.
     FlowerWinRequired,
@@ -338,7 +319,7 @@ impl fmt::Display for ScoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidNotation => {
-                f.write_str("expected tiles such as 123m or 1z; honors are 1..=7; parse_tile requires exactly one tile")
+                f.write_str("invalid MPSZ notation: parse_hand accepts [exposed sets], {concealed kongs}, and 0f..8f flower counts; parse_tile requires one tile")
             }
             Self::InvalidRank => f.write_str("tile rank must be 1..=9"),
             Self::InvalidChow => f.write_str("a chow must start at a suited tile ranked 1..=7"),
@@ -347,9 +328,8 @@ impl fmt::Display for ScoreError {
                 f.write_str("expected 16 - 3 * meld count loose tiles, excluding the winning tile")
             }
             Self::TooManyCopies { tile } => write!(f, "more than four copies of {tile:?}"),
-            Self::DuplicateFlower { flower } => write!(f, "duplicate flower: {flower:?}"),
             Self::InvalidFlowers => {
-                f.write_str("expected eight unique flowers, or seven and the missing robbed flower")
+                f.write_str("flowers must be 0..=8; a flower-only win requires eight held, or seven and robbing the eighth")
             }
             Self::FlowerWinRequired => f.write_str("use score_flowers for an eight-flower win"),
             Self::InvalidContext { reason } => f.write_str(reason),

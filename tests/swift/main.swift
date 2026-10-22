@@ -1,7 +1,27 @@
 import Tai
 
-// Complete construction with default empty melds/flowers and false optional flags.
-let hand = Hand(concealed: try parseTiles(notation: "123456m 234678p 345s 1z"))
+// Complete mixed hand, also shown in the README.
+let mixedHand = try parseHand(notation: "[111s] {5555z} [666z] 77s 56m 777z 3f")
+let mixedWin = WinContext(winningTile: try parseTile(notation: "4m"),
+                          winner: .south, dealer: .east, source: .discard(.west), discards: 10)
+let mixedResult = try score(hand: mixedHand, context: mixedWin)
+precondition(mixedResult.total == 42)
+precondition(mixedHand.melds == [.pung(.bamboo(1)), .concealedKong(.white), .pung(.green)])
+precondition(mixedHand.flowers == 3)
+precondition(mixedResult.awards.contains { $0.pattern == .flowers && $0.tai == 3 })
+let allMelds = try parseHand(notation: "[321m][111s][5555z]{6666z}77s77z")
+precondition(allMelds.melds == [.chow(.characters(1)), .pung(.bamboo(1)), .kong(.white), .concealedKong(.green)])
+let dragons = try parseTiles(notation: "567z")
+precondition(dragons == [.white, .green, .red])
+for notation in ["[111s", "{111z}", "[[111s]]", "[89m1s]", "9f", "12f", "0f[111s]3f", "[111s1f]"] {
+    do {
+        _ = try parseHand(notation: notation)
+        fatalError("invalid hand notation was accepted: \(notation)")
+    } catch ScoreError.InvalidNotation {}
+}
+
+// Plain hands retain default empty melds, zero flowers, and false optional flags.
+let hand = try parseHand(notation: "123456m 234678p 345s 1z")
 var context = WinContext(winningTile: try parseTile(notation: "1z"),
                          winner: .south, dealer: .east, source: .discard(.west), discards: 10)
 let result = try score(hand: hand, context: context)
@@ -12,7 +32,7 @@ precondition(result.awards.map(\.description) == [
 ])
 precondition(result.awards.map(\.tai).reduce(0, +) == result.total)
 precondition(result.awards.contains { $0.pattern == .noFlowers && $0.tai == 1 })
-precondition(hand.melds.isEmpty && hand.flowers.isEmpty)
+precondition(hand.melds.isEmpty && hand.flowers == 0)
 precondition(!context.lastTile && !context.readyOnOriginalHand)
 
 // The typed API needs no notation or nested suit/dragon records.
@@ -56,17 +76,17 @@ do {
     precondition(!reason.isEmpty)
 }
 
-let flowers: [Flower] = [.plum, .orchid, .chrysanthemum, .bamboo, .spring, .summer, .autumn, .winter]
-let allFlowers = try scoreFlowers(flowers: flowers, robbed: nil)
+let flowerHand = try parseHand(notation: "8f")
+let allFlowers = try scoreFlowers(flowers: flowerHand.flowers, robbedEighth: false)
 precondition(allFlowers.total == 30 && allFlowers.awards.count == 1)
 precondition(allFlowers.awards[0].description == "All flowers and seasons")
-let robbed = try scoreFlowers(flowers: Array(flowers.prefix(7)), robbed: .winter)
+let robbed = try scoreFlowers(flowers: 7, robbedEighth: true)
 precondition(robbed.total == 20)
 precondition(robbed.awards[0].description == "Seven flowers and seasons, robbing the eighth")
 
 // Every meld variant crosses the generated interface, along with the new tile enums.
 for meld: Meld in [.chow(.characters(1)), .pung(.red), .kong(.red), .concealedKong(.red)] {
-    let meldHand = Hand(concealed: Array(typed.dropFirst(3)), melds: [meld], flowers: [.plum])
+    let meldHand = Hand(concealed: Array(typed.dropFirst(3)), melds: [meld], flowers: 1)
     let meldScore = try score(hand: meldHand, context: context)
     precondition(meldScore.total > 0)
 }
@@ -91,7 +111,7 @@ precondition(drawnScore.awards.contains { $0.pattern == .fullyConcealedHand && $
 
 // Typed Rust errors survive the boundary; flower-only wins have one explicit route.
 do {
-    _ = try score(hand: Hand(concealed: [], flowers: flowers), context: context)
+    _ = try score(hand: Hand(concealed: [], flowers: 8), context: context)
     fatalError("tile scoring accepted a flower-only win")
 } catch ScoreError.FlowerWinRequired {}
 do {
@@ -100,7 +120,7 @@ do {
 } catch ScoreError.InvalidNotation {}
 let singleTile = try parseTile(notation: " 9p\n")
 precondition(singleTile == .dots(9))
-for notation in ["", "11z", "1m 2p", "8z"] {
+for notation in ["", "11z", "1m 2p", "8z", "0f", "1m1f"] {
     do {
         _ = try parseTile(notation: notation)
         fatalError("invalid single-tile notation was accepted: \(notation)")
@@ -112,13 +132,15 @@ do {
     fatalError("invalid rank was accepted")
 } catch ScoreError.InvalidRank {}
 do {
-    _ = try scoreFlowers(flowers: [.plum, .plum], robbed: nil)
-    fatalError("duplicate flower was accepted")
-} catch ScoreError.DuplicateFlower(let flower) {
-    precondition(flower == .plum)
-}
+    _ = try score(hand: Hand(concealed: typed, flowers: 9), context: mixedWin)
+    fatalError("out-of-range flower count was accepted")
+} catch ScoreError.InvalidFlowers {}
+do {
+    _ = try scoreFlowers(flowers: 7, robbedEighth: false)
+    fatalError("seven flowers without robbery were accepted as a flower-only win")
+} catch ScoreError.InvalidFlowers {}
 for _ in 0..<100 {
-    let repeated = try scoreFlowers(flowers: flowers, robbed: nil)
+    let repeated = try scoreFlowers(flowers: 8, robbedEighth: false)
     precondition(repeated.total == 30)
 }
 print("Swift 6 integration passed: defaults, notation, typed tiles/melds, scoring, descriptions, errors, repeated calls")

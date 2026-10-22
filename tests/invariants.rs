@@ -41,7 +41,7 @@ fn generated_legal_hands_are_order_invariant_with_consistent_breakdowns() {
         let mut h = Hand {
             concealed: loose,
             melds,
-            flowers: flowers()[..rng.next(8)].to_vec(),
+            flowers: rng.next(8) as u8,
         };
         let mut c = base().1;
         c.winning_tile = winning_tile;
@@ -68,7 +68,6 @@ fn generated_legal_hands_are_order_invariant_with_consistent_breakdowns() {
         }
         h.concealed.reverse();
         h.melds.reverse();
-        h.flowers.reverse();
         assert_eq!(score(&h, &c).unwrap(), result);
     }
     assert!(tested > 500, "only {tested} valid generated hands");

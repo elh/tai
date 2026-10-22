@@ -41,7 +41,7 @@ fn reference_hand_with_mandatory_flower_scoring() {
     let (h, c) = hand(
         "777p 11z",
         "1z",
-        vec![pung("2z"), kong("5z", false), pung("2m"), pung("6s")],
+        vec![pung("2z"), kong("7z", false), pung("2m"), pung("6s")],
     );
     assert_score(
         &score(&h, &c).unwrap(),
@@ -61,38 +61,36 @@ fn reference_hand_with_mandatory_flower_scoring() {
 fn flowers_are_always_enabled() {
     let (mut h, c) = base();
     for count in [0, 1, 7] {
-        h.flowers = flowers()[..count].to_vec();
+        h.flowers = count;
         let result = score(&h, &c).unwrap();
         assert_award(&result, Flowers, count as u16);
         assert_award(&result, NoFlowers, u16::from(count == 0));
+        assert_award(&result, SevenFlowersRobbingEighth, 0);
+        assert_award(&result, EightFlowers, 0);
     }
 }
 
 #[test]
 fn flower_wins_are_exclusive() {
+    assert_score(&score_flowers(8, false).unwrap(), 30, &[(EightFlowers, 30)]);
     assert_score(
-        &score_flowers(&flowers(), None).unwrap(),
-        30,
-        &[(EightFlowers, 30)],
-    );
-    assert_score(
-        &score_flowers(&flowers()[..7], Some(Flower::Winter)).unwrap(),
+        &score_flowers(7, true).unwrap(),
         20,
         &[(SevenFlowersRobbingEighth, 20)],
     );
     let (mut h, c) = base();
-    h.flowers = flowers();
+    h.flowers = 8;
     assert_eq!(score(&h, &c), Err(ScoreError::FlowerWinRequired));
 }
 
 #[test]
 fn absence_and_chow_bonuses_do_not_double_count() {
     let (mut h, c) = hand("123m 456m 234p 678p 345s 99s", "9s", vec![]);
-    h.flowers = vec![Flower::Plum];
+    h.flowers = 1;
     let held = score(&h, &c).unwrap();
     assert_award(&held, NoHonors, 1);
     assert_award(&held, ChowHand, 3);
-    h.flowers = vec![];
+    h.flowers = 0;
     let clean = score(&h, &c).unwrap();
     assert_award(&clean, ChowHandNoHonorsOrFlowers, 10);
     for p in [NoHonors, NoFlowers, NoHonorsOrFlowers, ChowHand] {
@@ -100,7 +98,7 @@ fn absence_and_chow_bonuses_do_not_double_count() {
     }
 
     let (mut h, c) = hand("111m 456m 234p 678p 345s 99s", "9s", vec![]);
-    h.flowers = vec![];
+    h.flowers = 0;
     let combined = score(&h, &c).unwrap();
     assert_award(&combined, NoHonorsOrFlowers, 3);
     assert_award(&combined, NoHonors, 0);

@@ -59,12 +59,9 @@ fn every_numbered_tile_location_rejects_invalid_ranks() {
 #[test]
 fn flower_only_wins_never_require_dummy_tile_data() {
     let (_, c) = base();
-    let h = Hand {
-        flowers: flowers(),
-        ..Hand::default()
-    };
+    let h = parse_hand("8f").unwrap();
     assert_eq!(score(&h, &c), Err(ScoreError::FlowerWinRequired));
-    assert_eq!(score_flowers(&h.flowers, None).unwrap().total, 30);
+    assert_eq!(score_flowers(h.flowers, false).unwrap().total, 30);
 }
 
 #[test]
@@ -145,34 +142,23 @@ fn not_every_seventeen_tiles_win_and_suits_do_not_wrap() {
 #[test]
 fn invalid_flowers_are_rejected() {
     let (mut h, c) = base();
-    h.flowers = vec![Flower::Plum; 2];
-    let duplicate = Err(ScoreError::DuplicateFlower {
-        flower: Flower::Plum,
-    });
-    assert_eq!(score(&h, &c), duplicate);
-    assert_eq!(score_flowers(&[Flower::Plum; 8], None), duplicate);
-    assert_eq!(
-        score_flowers(&[Flower::Plum; 9], None),
-        Err(ScoreError::InvalidFlowers)
-    );
-    for count in 0..8 {
+    for count in [9, u8::MAX] {
+        h.flowers = count;
+        assert_eq!(score(&h, &c), Err(ScoreError::InvalidFlowers));
+    }
+    for (count, robbed) in [
+        (0, false),
+        (6, true),
+        (7, false),
+        (8, true),
+        (9, false),
+        (u8::MAX, true),
+    ] {
         assert_eq!(
-            score_flowers(&flowers()[..count], None),
+            score_flowers(count, robbed),
             Err(ScoreError::InvalidFlowers)
         );
     }
-    assert_eq!(
-        score_flowers(&flowers()[..7], Some(Flower::Plum)),
-        Err(ScoreError::InvalidFlowers)
-    );
-    assert_eq!(
-        score_flowers(&flowers()[..6], Some(Flower::Winter)),
-        Err(ScoreError::InvalidFlowers)
-    );
-    assert_eq!(
-        score_flowers(&flowers(), Some(Flower::Winter)),
-        Err(ScoreError::InvalidFlowers)
-    );
 }
 
 #[test]

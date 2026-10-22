@@ -21,7 +21,7 @@ pub fn hand(complete_loose: &str, winning: &str, melds: Vec<Meld>) -> (Hand, Win
         Hand {
             concealed,
             melds,
-            flowers: vec![],
+            flowers: 0,
         },
         WinContext {
             winning_tile,
@@ -69,17 +69,4 @@ pub fn assert_score(score: &Score, total: u16, awards: &[(Pattern, u16)]) {
 #[track_caller]
 pub fn assert_award(score: &Score, pattern: Pattern, tai: u16) {
     assert_eq!(award(score, pattern), tai, "{pattern:?} in {score:?}");
-}
-
-pub fn flowers() -> Vec<Flower> {
-    vec![
-        Flower::Plum,
-        Flower::Orchid,
-        Flower::Chrysanthemum,
-        Flower::Bamboo,
-        Flower::Spring,
-        Flower::Summer,
-        Flower::Autumn,
-        Flower::Winter,
-    ]
 }
